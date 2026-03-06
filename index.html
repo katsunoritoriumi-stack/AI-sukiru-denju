@@ -1158,6 +1158,143 @@
         height: 40px;
       }
     }
+
+    /* ─── ライトボックス（モーダル） ─── */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(6, 4, 2, 0.95);
+      backdrop-filter: blur(5px);
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal.show {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-content {
+      position: relative;
+      max-width: 90%;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .modal-img {
+      max-width: 100%;
+      max-height: 80vh;
+      object-fit: contain;
+      border: 2px solid var(--gold-dark);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: -40px;
+      right: -10px;
+      color: var(--gold);
+      font-size: 2rem;
+      font-weight: bold;
+      cursor: pointer;
+      line-height: 1;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+      z-index: 10000;
+      transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+      color: var(--gold-light);
+    }
+
+    /* スライダー用コントロール */
+    .slider-controls {
+      display: none;
+      width: 100%;
+      justify-content: space-between;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .slider-btn {
+      background: rgba(14, 9, 5, 0.7);
+      color: var(--gold);
+      border: 1px solid var(--gold-dark);
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 -60px;
+      transition: all 0.2s;
+    }
+
+    .slider-btn:hover {
+      background: rgba(30, 20, 10, 0.9);
+      color: var(--gold-light);
+      border-color: var(--gold);
+      box-shadow: 0 0 15px rgba(201, 168, 76, 0.3);
+    }
+
+    @media(max-width: 768px) {
+      .slider-btn {
+        margin: 0 -20px;
+        width: 40px;
+        height: 40px;
+      }
+    }
+
+    .slide-counter {
+      color: var(--gold);
+      font-family: 'Cinzel', serif;
+      margin-top: 15px;
+      font-size: 1.1rem;
+      letter-spacing: 0.1em;
+      display: none;
+    }
+
+    /* 画像をクリッカブルに */
+    .clickable-img {
+      cursor: pointer;
+      position: relative;
+    }
+
+    .clickable-img::after {
+      content: '🔍 クリックで拡大';
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 5, 0, 0.5);
+      color: var(--gold-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.2rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .clickable-img:hover::after {
+      opacity: 1;
+    }
   </style>
 </head>
 
@@ -1282,7 +1419,7 @@
             </div>
           </div>
           <div class="map-card rv">
-            <div class="map-img-wrap">
+            <div class="map-img-wrap clickable-img" onclick="openModal('roadmap.png')">
               <img src="roadmap.png" alt="冒険ロードマップ" />
             </div>
             <div class="map-info">
@@ -1291,7 +1428,7 @@
             </div>
           </div>
           <div class="map-card rv">
-            <div class="map-img-wrap">
+            <div class="map-img-wrap clickable-img" onclick="openSlider()">
               <img src="slide_cover.jpg" alt="サービス紹介スライド" />
             </div>
             <div class="map-info">
@@ -1441,6 +1578,23 @@
     <p class="fc">── 冒険はまだ始まったばかりだ ──</p>
   </footer>
 
+  <!-- ライトボックス（モーダル） -->
+  <div id="imgModal" class="modal">
+    <div class="modal-content">
+      <span class="modal-close" onclick="closeModal()">&times;</span>
+      <img id="modalImage" class="modal-img" src="" alt="">
+
+      <!-- スライダー用コントロール -->
+      <div id="sliderControls" class="slider-controls">
+        <button class="slider-btn prev" onclick="prevSlide(event)">&#10094;</button>
+        <button class="slider-btn next" onclick="nextSlide(event)">&#10095;</button>
+      </div>
+
+      <!-- スライド番号表示 -->
+      <div id="slideCounter" class="slide-counter">1 / 13</div>
+    </div>
+  </div>
+
   <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
   <script>
     // パーティクル
@@ -1462,6 +1616,104 @@
     });
     const rvs = document.querySelectorAll('.rv');
     rvs.forEach(rv => io.observe(rv));
+
+    // ─── ライトボックス / スライダー機能 ───
+    const modal = document.getElementById('imgModal');
+    const modalImg = document.getElementById('modalImage');
+    const sliderControls = document.getElementById('sliderControls');
+    const slideCounter = document.getElementById('slideCounter');
+
+    let isSliderMode = false;
+    let currentSlide = 1;
+    const totalSlides = 13;
+
+    // 単一画像を開く（ロードマップ用）
+    function openModal(imageSrc) {
+      isSliderMode = false;
+      modalImg.src = imageSrc;
+      sliderControls.style.display = 'none';
+      slideCounter.style.display = 'none';
+      modal.classList.add('show');
+    }
+
+    // スライダーを開く（スライド用）
+    function openSlider() {
+      isSliderMode = true;
+      currentSlide = 1;
+      updateSlider();
+      sliderControls.style.display = 'flex';
+      slideCounter.style.display = 'block';
+      modal.classList.add('show');
+    }
+
+    function closeModal() {
+      modal.classList.remove('show');
+    }
+
+    function prevSlide(e) {
+      if (e) e.stopPropagation();
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateSlider();
+      }
+    }
+
+    function nextSlide(e) {
+      if (e) e.stopPropagation();
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateSlider();
+      }
+    }
+
+    function updateSlider() {
+      modalImg.src = `slide_${currentSlide}.jpg`;
+      slideCounter.textContent = `${currentSlide} / ${totalSlides}`;
+    }
+
+    // モーダル外枠クリックで閉じる
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    // キーボード操作対応
+    document.addEventListener('keydown', function (e) {
+      if (!modal.classList.contains('show')) return;
+
+      if (e.key === 'Escape') closeModal();
+
+      if (isSliderMode) {
+        if (e.key === 'ArrowLeft') prevSlide();
+        if (e.key === 'ArrowRight') nextSlide();
+      }
+    });
+
+    // ─── スワイプ操作対応 ───
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    modalImg.addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    modalImg.addEventListener('touchend', e => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+      if (!isSliderMode) return;
+
+      const threshold = 50; // スワイプと判定する最低ピクセル数
+      if (touchEndX < touchStartX - threshold) {
+        nextSlide(); // 左スワイプで次へ
+      }
+      if (touchEndX > touchStartX + threshold) {
+        prevSlide(); // 右スワイプで前へ
+      }
+    }
   </script>
 </body>
 
